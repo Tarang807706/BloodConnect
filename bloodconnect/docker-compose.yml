@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bloodconnect_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bloodconnect
+      POSTGRES_PASSWORD: bloodconnect_pass
+      POSTGRES_DB: bloodconnect_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bloodconnect -d bloodconnect_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: bloodconnect_api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - DATABASE_URL=postgresql://bloodconnect:bloodconnect_pass@postgres:5432/bloodconnect_db?schema=public
+      - JWT_ACCESS_SECRET=bloodconnect_super_secret_access_jwt_key_2026
+      - JWT_REFRESH_SECRET=bloodconnect_super_secret_refresh_jwt_key_2026
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: bloodconnect_web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:4000
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:

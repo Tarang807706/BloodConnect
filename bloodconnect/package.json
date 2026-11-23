@@ -1,0 +1,24 @@
+{
+  "name": "bloodconnect-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BLOODCONNECT: AI-Assisted Emergency Blood Coordination & Donor Mobilization Platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter @bloodconnect/shared build && concurrently -n \"api,web\" -c \"blue,green\" \"pnpm --filter @bloodconnect/api dev\" \"pnpm --filter @bloodconnect/web dev\"",
+    "dev:api": "pnpm --filter @bloodconnect/api dev",
+    "dev:web": "pnpm --filter @bloodconnect/web dev",
+    "build": "pnpm --filter @bloodconnect/shared build && pnpm --filter @bloodconnect/api build && pnpm --filter @bloodconnect/web build",
+    "test": "pnpm --filter @bloodconnect/api test",
+    "seed": "pnpm --filter @bloodconnect/api seed",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  },
+  "packageManager": "pnpm@10.32.1"
+}

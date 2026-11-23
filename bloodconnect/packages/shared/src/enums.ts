@@ -1,0 +1,99 @@
+export enum UserRole {
+  DONOR = 'DONOR',
+  HOSPITAL = 'HOSPITAL',
+  BLOOD_CENTRE = 'BLOOD_CENTRE',
+  NGO = 'NGO',
+  ADMIN = 'ADMIN',
+}
+
+export enum OrganizationType {
+  HOSPITAL = 'HOSPITAL',
+  BLOOD_CENTRE = 'BLOOD_CENTRE',
+  NGO = 'NGO',
+}
+
+export enum OrganizationStatus {
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  REJECTED = 'REJECTED',
+}
+
+export enum RequestStatus {
+  DRAFT = 'DRAFT',
+  SUBMITTED = 'SUBMITTED',
+  VERIFICATION_PENDING = 'VERIFICATION_PENDING',
+  VERIFIED = 'VERIFIED',
+  NO_SHORTAGE = 'NO_SHORTAGE',
+  REJECTED = 'REJECTED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum CaseStatus {
+  ACTIVE_STAGE_1 = 'ACTIVE_STAGE_1',
+  ACTIVE_STAGE_2 = 'ACTIVE_STAGE_2',
+  NGO_ACTIVATED = 'NGO_ACTIVATED',
+  ESCALATED = 'ESCALATED',
+  PAUSED = 'PAUSED',
+  FULFILLED = 'FULFILLED',
+  PARTIALLY_FULFILLED = 'PARTIALLY_FULFILLED',
+  EXPIRED = 'EXPIRED',
+  CANCELLED = 'CANCELLED',
+  CLOSED = 'CLOSED',
+}
+
+export enum StageActionType {
+  NOTIFY_DONORS = 'NOTIFY_DONORS',
+  ACTIVATE_NGO = 'ACTIVATE_NGO',
+  ESCALATE_CENTRES = 'ESCALATE_CENTRES',
+}
+
+export enum ResponseType {
+  I_CAN_HELP = 'I_CAN_HELP',
+  CANNOT_HELP = 'CANNOT_HELP',
+}
+
+export enum BloodGroup {
+  A_POS = 'A_POS',
+  A_NEG = 'A_NEG',
+  B_POS = 'B_POS',
+  B_NEG = 'B_NEG',
+  AB_POS = 'AB_POS',
+  AB_NEG = 'AB_NEG',
+  O_POS = 'O_POS',
+  O_NEG = 'O_NEG',
+}
+
+export enum BloodComponent {
+  WHOLE_BLOOD = 'WHOLE_BLOOD',
+  RED_BLOOD_CELLS = 'RED_BLOOD_CELLS',
+  PLATELETS = 'PLATELETS',
+  FRESH_FROZEN_PLASMA = 'FRESH_FROZEN_PLASMA',
+  CRYOPRECIPITATE = 'CRYOPRECIPITATE',
+}
+
+export enum Urgency {
+  CRITICAL = 'CRITICAL',
+  HIGH = 'HIGH',
+  MEDIUM = 'MEDIUM',
+}
+
+export enum NotificationChannel {
+  IN_APP = 'IN_APP',
+  EMAIL = 'EMAIL',
+  SMS = 'SMS',
+  PUSH = 'PUSH',
+}
+
+export enum DeliveryStatus {
+  QUEUED = 'QUEUED',
+  SENT = 'SENT',
+  FAILED = 'FAILED',
+  SKIPPED = 'SKIPPED',
+}
+
+export enum DonationOutcomeType {
+  DONATED = 'DONATED',
+  DEFERRED = 'DEFERRED',
+  NOT_ATTENDED = 'NOT_ATTENDED',
+}

@@ -1,0 +1,592 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  DONOR
+  HOSPITAL
+  BLOOD_CENTRE
+  NGO
+  ADMIN
+}
+
+enum OrganizationType {
+  HOSPITAL
+  BLOOD_CENTRE
+  NGO
+}
+
+enum OrganizationStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum RequestStatus {
+  DRAFT
+  SUBMITTED
+  VERIFICATION_PENDING
+  VERIFIED
+  NO_SHORTAGE
+  REJECTED
+  CANCELLED
+}
+
+enum CaseStatus {
+  ACTIVE_STAGE_1
+  ACTIVE_STAGE_2
+  NGO_ACTIVATED
+  ESCALATED
+  PAUSED
+  FULFILLED
+  PARTIALLY_FULFILLED
+  EXPIRED
+  CANCELLED
+  CLOSED
+}
+
+enum StageActionType {
+  NOTIFY_DONORS
+  ACTIVATE_NGO
+  ESCALATE_CENTRES
+}
+
+enum ResponseType {
+  I_CAN_HELP
+  CANNOT_HELP
+}
+
+enum BloodGroup {
+  A_POS
+  A_NEG
+  B_POS
+  B_NEG
+  AB_POS
+  AB_NEG
+  O_POS
+  O_NEG
+}
+
+enum BloodComponent {
+  WHOLE_BLOOD
+  RED_BLOOD_CELLS
+  PLATELETS
+  FRESH_FROZEN_PLASMA
+  CRYOPRECIPITATE
+}
+
+enum Urgency {
+  CRITICAL
+  HIGH
+  MEDIUM
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum DonationOutcomeType {
+  DONATED
+  DEFERRED
+  NOT_ATTENDED
+}
+
+model User {
+  id              String         @id @default(uuid())
+  email           String         @unique
+  passwordHash    String         @map("password_hash")
+  role            UserRole
+  fullName        String         @map("full_name")
+  isActive        Boolean        @default(true) @map("is_active")
+  organizationId  String?        @map("organization_id")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  organization    Organization?  @relation(fields: [organizationId], references: [id])
+  refreshTokens   RefreshToken[]
+  donorProfile    DonorProfile?
+  notifications   Notification[]
+  auditLogs       AuditLog[]     @relation("ActorAuditLogs")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  tokenHash   String   @unique @map("token_hash")
+  tokenFamily String   @map("token_family")
+  isRevoked   Boolean  @default(false) @map("is_revoked")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenFamily])
+  @@map("refresh_tokens")
+}
+
+model Organization {
+  id                  String             @id @default(uuid())
+  name                String
+  type                OrganizationType
+  status              OrganizationStatus @default(PENDING_APPROVAL)
+  licenseNumber       String             @unique @map("license_number")
+  contactEmail        String             @map("contact_email")
+  contactPhone        String             @map("contact_phone")
+  city                String
+  area                String
+  approxLat           Float              @map("approx_lat")
+  approxLng           Float              @map("approx_lng")
+  gridCell            String?            @map("grid_cell")
+  adminNotes          String?            @map("admin_notes")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  users               User[]
+  hospitalProfile     HospitalProfile?
+  bloodCentreProfile  BloodCentreProfile?
+  ngoProfile          NgoProfile?
+  emergencyRequests   EmergencyRequest[] @relation("HospitalRequests")
+  assignedRequests    EmergencyRequest[] @relation("CentreAssignedRequests")
+  managedCases        EmergencyCase[]    @relation("CentreManagedCases")
+  ngoActivations      NgoActivation[]
+
+  @@map("organizations")
+}
+
+model HospitalProfile {
+  id                  String       @id @default(uuid())
+  organizationId      String       @unique @map("organization_id")
+  emergencyHelpline   String?      @map("emergency_helpline")
+  bedCapacity         Int?         @map("bed_capacity")
+  traumaCenterLevel   String?      @map("trauma_center_level")
+
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("hospital_profiles")
+}
+
+model BloodCentreProfile {
+  id                   String       @id @default(uuid())
+  organizationId       String       @unique @map("organization_id")
+  storageCapacityUnits Int          @default(500) @map("storage_capacity_units")
+  licenseExpiryDate    DateTime?    @map("license_expiry_date")
+  operatingHours       String       @default("24x7") @map("operating_hours")
+
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("blood_centre_profiles")
+}
+
+model NgoProfile {
+  id                   String       @id @default(uuid())
+  organizationId       String       @unique @map("organization_id")
+  volunteerCountEstimate Int        @default(10) @map("volunteer_count_estimate")
+  primaryContactName   String?      @map("primary_contact_name")
+
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  volunteers           Volunteer[]
+
+  @@map("ngo_profiles")
+}
+
+model Permission {
+  id              String           @id @default(uuid())
+  name            String           @unique
+  description     String?
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  role         UserRole
+  permissionId String     @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([role, permissionId])
+  @@map("role_permissions")
+}
+
+model DonorProfile {
+  id                  String             @id @default(uuid())
+  userId              String             @unique @map("user_id")
+  bloodGroup          BloodGroup         @map("blood_group")
+  phone               String
+  city                String
+  area                String
+  approxLat           Float              @map("approx_lat")
+  approxLng           Float              @map("approx_lng")
+  gridCell            String?            @map("grid_cell")
+  isAvailable         Boolean            @default(true) @map("is_available")
+  unavailableUntil    DateTime?          @map("unavailable_until")
+  maxTravelKm         Float              @default(15) @map("max_travel_km")
+  preferredComponents String             @default("WHOLE_BLOOD") @map("preferred_components")
+  allowedChannels     String             @default("IN_APP,EMAIL") @map("allowed_channels")
+  quietHoursStart     String?            @map("quiet_hours_start")
+  quietHoursEnd       String?            @map("quiet_hours_end")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  donorNotifications  DonorNotification[]
+  donorResponses      DonorResponse[]
+  donationOutcomes    DonationOutcome[]
+
+  @@index([approxLat, approxLng])
+  @@index([bloodGroup, isAvailable])
+  @@map("donor_profiles")
+}
+
+model Volunteer {
+  id                 String              @id @default(uuid())
+  ngoProfileId       String              @map("ngo_profile_id")
+  fullName           String              @map("full_name")
+  phone              String
+  email              String?
+  city               String
+  area               String
+  approxLat          Float               @map("approx_lat")
+  approxLng          Float               @map("approx_lng")
+  gridCell           String?             @map("grid_cell")
+  bloodGroup         BloodGroup?         @map("blood_group")
+  specialSkills      String?             @map("special_skills")
+  isActive           Boolean             @default(true) @map("is_active")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  ngoProfile         NgoProfile          @relation(fields: [ngoProfileId], references: [id], onDelete: Cascade)
+  volunteerResponses VolunteerResponse[]
+
+  @@map("volunteers")
+}
+
+model EmergencyRequest {
+  id                 String                   @id @default(uuid())
+  hospitalId         String                   @map("hospital_id")
+  bloodCentreId      String                   @map("blood_centre_id")
+  bloodGroup         BloodGroup               @map("blood_group")
+  component          BloodComponent
+  unitsNeeded        Int                      @map("units_needed")
+  urgency            Urgency
+  requiredBy         DateTime                 @map("required_by")
+  status             RequestStatus            @default(SUBMITTED)
+  clinicalNotes      String?                  @map("clinical_notes")
+  approxLat          Float                    @map("approx_lat")
+  approxLng          Float                    @map("approx_lng")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+
+  hospital           Organization             @relation("HospitalRequests", fields: [hospitalId], references: [id])
+  bloodCentre        Organization             @relation("CentreAssignedRequests", fields: [bloodCentreId], references: [id])
+  verifications      RequestVerification[]
+  statusHistory      RequestStatusHistory[]
+  emergencyCases     EmergencyCase[]
+
+  @@index([status, bloodCentreId])
+  @@map("emergency_requests")
+}
+
+model RequestVerification {
+  id                     String           @id @default(uuid())
+  requestId              String           @map("request_id")
+  verifiedByUserId       String           @map("verified_by_user_id")
+  unitsAvailableAtCentre Int              @default(0) @map("units_available_at_centre")
+  shortageUnits          Int              @map("shortage_units")
+  status                 RequestStatus
+  notes                  String?
+  rejectionReason        String?          @map("rejection_reason")
+  createdAt              DateTime         @default(now()) @map("created_at")
+
+  emergencyRequest       EmergencyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("request_verifications")
+}
+
+model RequestStatusHistory {
+  id               String           @id @default(uuid())
+  requestId        String           @map("request_id")
+  fromStatus       RequestStatus?   @map("from_status")
+  toStatus         RequestStatus    @map("to_status")
+  reason           String?
+  actorUserId      String?          @map("actor_user_id")
+  actorRole        String?          @map("actor_role")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  emergencyRequest EmergencyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+  @@map("request_status_history")
+}
+
+model EmergencyCase {
+  id                   String                  @id @default(uuid())
+  requestId            String                  @map("request_id")
+  bloodCentreId        String                  @map("blood_centre_id")
+  shortageUnits        Int                     @map("shortage_units")
+  unitsFulfilled       Int                     @default(0) @map("units_fulfilled")
+  status               CaseStatus              @default(ACTIVE_STAGE_1)
+  currentStageNumber   Int                     @default(1) @map("current_stage_number")
+  pausedFromStatus     CaseStatus?             @map("paused_from_status")
+  pauseReason          String?                 @map("pause_reason")
+  cancelReason         String?                 @map("cancel_reason")
+  closingNotes         String?                 @map("closing_notes")
+  version              Int                     @default(1)
+  nextStageDueAt       DateTime?               @map("next_stage_due_at")
+  createdAt            DateTime                @default(now()) @map("created_at")
+  updatedAt            DateTime                @updatedAt @map("updated_at")
+
+  emergencyRequest     EmergencyRequest        @relation(fields: [requestId], references: [id])
+  bloodCentre          Organization            @relation("CentreManagedCases", fields: [bloodCentreId], references: [id])
+  caseStages           CaseStage[]
+  statusHistory        CaseStatusHistory[]
+  donorNotifications   DonorNotification[]
+  donorResponses       DonorResponse[]
+  ngoActivations       NgoActivation[]
+  escalationTargets    CaseEscalationTarget[]
+  donationOutcomes     DonationOutcome[]
+
+  @@index([status, bloodCentreId])
+  @@index([nextStageDueAt])
+  @@map("emergency_cases")
+}
+
+model CaseStageRule {
+  id                   String          @id @default(uuid())
+  stageNumber          Int             @unique @map("stage_number")
+  actionType           StageActionType @map("action_type")
+  radiusKm             Float           @map("radius_km")
+  timeoutMinutes       Int             @map("timeout_minutes")
+  minResponsesFactor   Float           @default(1.5) @map("min_responses_factor")
+  autoAdvanceOnTimeout Boolean         @default(true) @map("auto_advance_on_timeout")
+  version              Int             @default(1)
+  updatedAt            DateTime        @updatedAt @map("updated_at")
+
+  @@map("case_stage_rules")
+}
+
+model CaseStage {
+  id                   String          @id @default(uuid())
+  caseId               String          @map("case_id")
+  stageNumber          Int             @map("stage_number")
+  actionType           StageActionType @map("action_type")
+  radiusKm             Float           @map("radius_km")
+  timeoutMinutes       Int             @map("timeout_minutes")
+  minResponsesFactor   Float           @map("min_responses_factor")
+  startedAt            DateTime        @default(now()) @map("started_at")
+  dueAt                DateTime        @map("due_at")
+  completedAt          DateTime?       @map("completed_at")
+  isCurrent            Boolean         @default(true) @map("is_current")
+
+  emergencyCase        EmergencyCase   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, stageNumber])
+  @@map("case_stages")
+}
+
+model CaseStatusHistory {
+  id            String         @id @default(uuid())
+  caseId        String         @map("case_id")
+  fromStatus    CaseStatus?    @map("from_status")
+  toStatus      CaseStatus     @map("to_status")
+  reason        String?
+  actorUserId   String?        @map("actor_user_id")
+  actorRole     String?        @map("actor_role")
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  emergencyCase EmergencyCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId, createdAt])
+  @@map("case_status_history")
+}
+
+model DonorNotification {
+  id             String          @id @default(uuid())
+  caseId         String          @map("case_id")
+  stageNumber    Int             @map("stage_number")
+  donorProfileId String          @map("donor_profile_id")
+  distanceKm     Float           @map("distance_km")
+  sentAt         DateTime        @default(now()) @map("sent_at")
+
+  emergencyCase  EmergencyCase   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  donorProfile   DonorProfile    @relation(fields: [donorProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, donorProfileId])
+  @@map("donor_notifications")
+}
+
+model DonorResponse {
+  id                      String        @id @default(uuid())
+  caseId                  String        @map("case_id")
+  donorProfileId          String        @map("donor_profile_id")
+  response                ResponseType
+  estimatedArrivalMinutes Int?          @map("estimated_arrival_minutes")
+  notes                   String?
+  respondedAt             DateTime      @default(now()) @map("responded_at")
+  acknowledgedDisclaimer  Boolean       @default(true) @map("acknowledged_disclaimer")
+
+  emergencyCase           EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  donorProfile            DonorProfile  @relation(fields: [donorProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, donorProfileId])
+  @@map("donor_responses")
+}
+
+model NgoActivation {
+  id                 String              @id @default(uuid())
+  caseId             String              @map("case_id")
+  ngoOrganizationId  String              @map("ngo_organization_id")
+  broadcastMessage   String?             @map("broadcast_message")
+  activatedAt        DateTime            @default(now()) @map("activated_at")
+
+  emergencyCase      EmergencyCase       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  ngoOrganization    Organization        @relation(fields: [ngoOrganizationId], references: [id])
+  volunteerResponses VolunteerResponse[]
+
+  @@unique([caseId, ngoOrganizationId])
+  @@map("ngo_activations")
+}
+
+model VolunteerResponse {
+  id              String        @id @default(uuid())
+  activationId    String        @map("activation_id")
+  volunteerId     String        @map("volunteer_id")
+  response        ResponseType
+  notes           String?
+  respondedAt     DateTime      @default(now()) @map("responded_at")
+
+  ngoActivation   NgoActivation @relation(fields: [activationId], references: [id], onDelete: Cascade)
+  volunteer       Volunteer     @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
+
+  @@map("volunteer_responses")
+}
+
+model CaseEscalationTarget {
+  id                   String        @id @default(uuid())
+  caseId               String        @map("case_id")
+  targetCentreOrgId    String        @map("target_centre_org_id")
+  notifiedAt           DateTime      @default(now()) @map("notified_at")
+  status               String        @default("NOTIFIED")
+
+  emergencyCase        EmergencyCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, targetCentreOrgId])
+  @@map("case_escalation_targets")
+}
+
+model DonationOutcome {
+  id              String              @id @default(uuid())
+  caseId          String              @map("case_id")
+  donorProfileId  String              @map("donor_profile_id")
+  recordedByUserId String             @map("recorded_by_user_id")
+  outcome         DonationOutcomeType
+  unitsCollected  Int                 @default(0) @map("units_collected")
+  deferralReason  String?             @map("deferral_reason")
+  clinicalNotes   String?             @map("clinical_notes")
+  recordedAt      DateTime            @default(now()) @map("recorded_at")
+
+  emergencyCase   EmergencyCase       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  donorProfile    DonorProfile        @relation(fields: [donorProfileId], references: [id], onDelete: Cascade)
+
+  @@map("donation_outcomes")
+}
+
+model Notification {
+  id           String                 @id @default(uuid())
+  userId       String                 @map("user_id")
+  title        String
+  body         String
+  dataJson     String?                @map("data_json")
+  isRead       Boolean                @default(false) @map("is_read")
+  createdAt    DateTime               @default(now()) @map("created_at")
+
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries   NotificationDelivery[]
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id             String              @id @default(uuid())
+  notificationId String              @map("notification_id")
+  channel        NotificationChannel
+  status         DeliveryStatus      @default(QUEUED)
+  attempts       Int                 @default(0)
+  lastError      String?             @map("last_error")
+  sentAt         DateTime?           @map("sent_at")
+  createdAt      DateTime            @default(now()) @map("created_at")
+
+  notification   Notification        @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@map("notification_deliveries")
+}
+
+model AuditLog {
+  id            String    @id @default(uuid())
+  actorUserId   String?   @map("actor_user_id")
+  actorRole     String?   @map("actor_role")
+  action        String
+  targetEntity  String    @map("target_entity")
+  targetId      String?   @map("target_id")
+  ipAddress     String?   @map("ip_address")
+  userAgent     String?   @map("user_agent")
+  detailsJson   String?   @map("details_json")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  actorUser     User?     @relation("ActorAuditLogs", fields: [actorUserId], references: [id])
+
+  @@index([targetEntity, targetId])
+  @@index([actorUserId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  id          String   @id @default(uuid())
+  configKey   String   @unique @map("config_key")
+  configValue String   @map("config_value")
+  description String?
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_configs")
+}
+
+model SystemConfigHistory {
+  id             String   @id @default(uuid())
+  configKey      String   @map("config_key")
+  previousValue  String   @map("previous_value")
+  newValue       String   @map("new_value")
+  changedByUserId String? @map("changed_by_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("system_config_history")
+}
+
+model RelevantGroupMapping {
+  id                String     @id @default(uuid())
+  requestedGroup    BloodGroup @map("requested_group")
+  targetDonorGroup  BloodGroup @map("target_donor_group")
+  notes             String?    @default("Standard administrative coordination default: same blood group notification")
+
+  @@unique([requestedGroup, targetDonorGroup])
+  @@map("relevant_group_mappings")
+}
