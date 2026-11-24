@@ -5,7 +5,7 @@ export const DonorResponseSchema = z.object({
   response: z.nativeEnum(ResponseType),
   estimatedArrivalMinutes: z.number().int().min(5).max(360).optional(),
   notes: z.string().max(200).optional(),
-  acknowledgedDisclaimer: z.boolean().refine(val => val === true, {
+  acknowledgedDisclaimer: z.boolean().refine((val: boolean) => val === true, {
     message: 'You must acknowledge that your response expresses willingness and medical eligibility is decided solely by the blood centre.',
   }),
 });
