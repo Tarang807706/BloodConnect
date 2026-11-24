@@ -36,7 +36,8 @@ export function useNotifications() {
     const token = api.getAccessToken();
     if (!token) return;
 
-    const eventSource = new EventSource(`http://localhost:4000/api/v1/notifications/stream?token=${token}`);
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    const eventSource = new EventSource(`${apiBase}/api/v1/notifications/stream?token=${token}`);
 
     eventSource.addEventListener('notification', (event) => {
       try {

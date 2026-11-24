@@ -83,7 +83,8 @@ export default function AdminDashboard() {
   };
 
   const handleExportAuditCsv = () => {
-    window.open('http://localhost:4000/api/v1/admin/audit-logs/export', '_blank');
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+    window.open(`${apiBase}/api/v1/admin/audit-logs/export`, '_blank');
   };
 
   if (isLoading) {
